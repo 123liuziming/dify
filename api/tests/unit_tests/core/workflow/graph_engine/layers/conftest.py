@@ -113,6 +113,73 @@ def mock_retrieval_node():
 
 
 @pytest.fixture
+def mock_agent_node():
+    """Create a mock Agent Node."""
+    node = MagicMock()
+    node.id = "test-agent-node-id"
+    node.title = "Agent Node"
+    node.execution_id = "test-agent-execution-id"
+    node.node_type = BuiltinNodeTypes.AGENT
+    return node
+
+
+@pytest.fixture
+def mock_custom_node():
+    """Create a mock Custom Node whose ``node_type`` is not in BuiltinNodeTypes."""
+    node = MagicMock()
+    node.id = "test-custom-node-id"
+    node.title = "Custom Node"
+    node.execution_id = "test-custom-execution-id"
+    node.node_type = "my-plugin:my-custom-node"
+    return node
+
+
+@pytest.fixture
+def node_factory():
+    """Factory that builds a minimal mock node for any BuiltinNodeTypes value."""
+
+    def _make(node_type: BuiltinNodeTypes):
+        node = MagicMock()
+        node.id = f"test-{node_type.name.lower()}-node-id"
+        node.title = f"{node_type.name} Node"
+        node.execution_id = f"test-{node_type.name.lower()}-execution-id"
+        node.node_type = node_type
+        if node_type == BuiltinNodeTypes.TOOL:
+            from core.tools.entities.tool_entities import ToolProviderType
+            from graphon.nodes.tool.entities import ToolNodeData
+
+            node._node_data = ToolNodeData(
+                title=node.title,
+                desc=None,
+                provider_id="test-provider-id",
+                provider_type=ToolProviderType.BUILT_IN,
+                provider_name="test-provider",
+                tool_name="test-tool",
+                tool_label="Test Tool",
+                tool_configurations={},
+                tool_parameters={},
+            )
+        return node
+
+    return _make
+
+
+@pytest.fixture
+def force_genai_handler_unavailable():
+    """Force ``get_genai_handler()`` to return None for the duration of a test.
+
+    This drives the FR-006 degraded path so unit tests can run without the
+    optional ``loongsuite-util-genai`` dependency installed.
+    """
+    with patch(
+        "core.app.workflow.layers.observability.get_genai_handler",
+        return_value=None,
+        autospec=True,
+    ):
+        yield
+
+
+@pytest.fixture
 def mock_result_event():
     """Create a mock result event with NodeRunResult."""
     from datetime import datetime

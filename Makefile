@@ -163,6 +163,32 @@ help:
 	@echo "  make build-all      - Build all Docker images"
 	@echo "  make push-all       - Push all Docker images"
 	@echo "  make build-push-all - Build and push all Docker images"
+	@echo ""
+	@echo "K8s E2E (FEATURE-001 / AGE-42):"
+	@echo "  make e2e-dify-otel-console        - Deploy + run OTel-console workflow E2E"
+	@echo "  make e2e-dify-otel-console-clean  - Tear down the E2E deployment"
+
+# ----------------------------------------------------------------------------
+# E2E: deploy ObservabilityLayer changes to ACK and verify spans on stdout.
+# Spec ref: spec/dify-workflow-span-naming/spec.md FR-010 / AC-010.
+# Requires KUBECONFIG=~/.kube/config-hk and an existing dify-system namespace.
+# ----------------------------------------------------------------------------
+E2E_KUBECONFIG ?= $(HOME)/.kube/config-hk
+E2E_NAMESPACE ?= dify-system
+E2E_KUSTOMIZE_DIR ?= dev/k8s-e2e/dify-system
+
+e2e-dify-otel-console:
+	@echo "🚀 Deploying Dify (OTel console exporter) to $(E2E_NAMESPACE)..."
+	@KUBECONFIG=$(E2E_KUBECONFIG) kubectl apply -k $(E2E_KUSTOMIZE_DIR) -n $(E2E_NAMESPACE)
+	@KUBECONFIG=$(E2E_KUBECONFIG) kubectl -n $(E2E_NAMESPACE) rollout status deployment/dify-api --timeout=300s
+	@KUBECONFIG=$(E2E_KUBECONFIG) kubectl -n $(E2E_NAMESPACE) rollout status deployment/dify-worker --timeout=300s
+	@echo "▶️  Triggering mixed-node E2E workflow + asserting span set..."
+	@KUBECONFIG=$(E2E_KUBECONFIG) E2E_NAMESPACE=$(E2E_NAMESPACE) ./dev/k8s-e2e/dify-system/run-e2e.sh
+
+e2e-dify-otel-console-clean:
+	@echo "🧹 Removing E2E deployment from $(E2E_NAMESPACE)..."
+	@KUBECONFIG=$(E2E_KUBECONFIG) kubectl delete -k $(E2E_KUSTOMIZE_DIR) -n $(E2E_NAMESPACE) --ignore-not-found
+	@echo "✅ E2E cleanup complete"
 
 # Phony targets
-.PHONY: build-web build-api push-web push-api build-all push-all build-push-all dev-setup prepare-docker prepare-web prepare-api dev-clean help format check lint type-check test
+.PHONY: build-web build-api push-web push-api build-all push-all build-push-all dev-setup prepare-docker prepare-web prepare-api dev-clean help format check lint type-check test e2e-dify-otel-console e2e-dify-otel-console-clean
