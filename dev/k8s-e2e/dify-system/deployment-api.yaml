@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dify-api
+  labels:
+    app: dify-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dify-api
+  template:
+    metadata:
+      labels:
+        app: dify-api
+    spec:
+      containers:
+        - name: api
+          # Override DIFY_E2E_IMAGE (e.g. registry.cn-hongkong.aliyuncs.com/dify/dify-api:age-42)
+          # via Makefile or kubectl set image after apply.
+          image: dify-api:e2e-age-42
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: dify-otel-console-env
+          env:
+            - name: DIFY_NODE_ROLE
+              value: "api"
+          ports:
+            - name: http
+              containerPort: 5001
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5001
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5001
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "2Gi"

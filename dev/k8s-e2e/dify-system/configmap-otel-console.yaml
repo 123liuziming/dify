@@ -1,0 +1,21 @@
+# OTel + Dify env. Console exporter (stdout) is the assertion source per FR-010.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dify-otel-console-env
+data:
+  ENABLE_OTEL: "true"
+  # Console exporter — every span lands on the API/Worker pod's stdout. No
+  # OTLP collector or ARMS endpoint is wired in this E2E, intentionally.
+  OTEL_EXPORTER_TYPE: "console"
+  OTEL_SAMPLING_RATE: "1.0"
+  OTEL_BATCH_EXPORT_SCHEDULE_DELAY: "1000"
+  # util-genai capture knobs (reference for ops; defaults are safe).
+  OTEL_SEMCONV_STABILITY_OPT_IN: "gen_ai_latest_experimental"
+  OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: "NO_CONTENT"
+  # Re-use any existing in-namespace dependencies (DB / Redis / vector store).
+  # Override below if dify-system uses different service names.
+  DB_HOST: "postgres-svc"
+  DB_PORT: "5432"
+  REDIS_HOST: "redis-svc"
+  REDIS_PORT: "6379"
