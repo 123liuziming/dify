@@ -6,17 +6,9 @@ tracing of workflow execution. It establishes OTel context during node execution
 so that automatic instrumentation (HTTP requests, DB queries, etc.) automatically
 associates with the node span.
 
-Spec ref: spec/dify-workflow-span-naming/spec.md (FEATURE-001).
-- FR-001: Span name is now ``dify:<canonical-kind>``; for util-genai-emitted
-  spans we ``span.update_name(...)`` after the helper finishes and preserve the
-  helper's original name in ``gen_ai.original.span.name``.
-- FR-003: ``gen_ai.span.kind`` for non-LLM/Retrieval/Tool/Agent nodes is now
-  ``WORKFLOW_*`` (no more ``TASK`` collapse).
-- FR-004: every node span carries ``dify.node.kind`` / ``dify.node.title``.
-- FR-005: nodes whose ``node_type`` falls outside the static map fall back to
-  ``dify:custom`` via the tracer path with no util-genai dispatch.
-- FR-006: util-genai handler exceptions are caught and the node falls back to
-  ``tracer.start_span``; warnings are deduplicated per raw ``node_type``.
+LLM / Knowledge Retrieval / Tool / Agent nodes are emitted via util-genai's
+``ExtendedTelemetryHandler`` so they carry GenAI semantic convention attributes.
+All other nodes go through the global tracer with ``node.title`` as span name.
 """
 
 import logging
@@ -40,10 +32,8 @@ from extensions.otel.parser import (
 )
 from extensions.otel.runtime import is_instrument_flag_enabled
 from extensions.otel.semconv.node_kind import (
-    GEN_AI_ORIGINAL_SPAN_NAME,
     is_genai_handled_kind,
     node_type_to_kind,
-    span_name_for_kind,
 )
 from graphon.enums import BuiltinNodeTypes, NodeType
 from graphon.graph_engine.layers import GraphEngineLayer
@@ -223,7 +213,7 @@ class ObservabilityLayer(GraphEngineLayer):
 
         parent_context = context_api.get_current()
         span = self._tracer.start_span(
-            span_name_for_kind(kind),
+            node.title,
             kind=SpanKind.INTERNAL,
             context=parent_context,
         )
@@ -303,32 +293,15 @@ class ObservabilityLayer(GraphEngineLayer):
         except Exception:
             logger.warning("Failed to refresh util-genai invocation for node %s", node.id, exc_info=True)
 
-        original_name = ""
-        try:
-            if hasattr(ctx.span, "name"):
-                original_name = str(getattr(ctx.span, "name", "") or "")
-        except Exception:
-            original_name = ""
-
-        # Common ``dify.node.*`` / ``node.*`` attrs and the renamed span name
-        # must be written BEFORE the helper ends the span — once ``stop_*`` /
-        # ``fail_*`` returns the span is closed and further mutations are
-        # ignored by the SDK.
+        # Common ``dify.node.*`` / ``node.*`` attrs must be written BEFORE the
+        # helper ends the span — once ``stop_*`` / ``fail_*`` returns the span
+        # is closed and further mutations are ignored by the SDK.
         try:
             from extensions.otel.parser.base import _set_common_node_attributes  # noqa: PLC0415
 
             _set_common_node_attributes(node=node, span=ctx.span, kind=ctx.kind)
         except Exception:
             logger.warning("Failed to set common node attrs on util-genai span for %s", node.id)
-
-        try:
-            new_name = span_name_for_kind(ctx.kind)
-            if hasattr(ctx.span, "update_name"):
-                ctx.span.update_name(new_name)
-            if original_name and original_name != new_name:
-                ctx.span.set_attribute(GEN_AI_ORIGINAL_SPAN_NAME, original_name)
-        except Exception:
-            logger.warning("Failed to rename util-genai span for node %s", node.id)
 
         try:
             if error is not None:

@@ -8,10 +8,9 @@ Test coverage:
 - Result event parameter extraction (inputs/outputs)
 - Graph lifecycle management
 - Disabled mode behavior
-- Spec FEATURE-001 (AGE-42): canonical span names ``dify:<kind>``,
-  ``dify.node.kind`` / ``dify.node.title`` / ``node.type``,
+- ``dify.node.kind`` / ``dify.node.title`` / ``node.type`` attributes,
   ``gen_ai.span.kind`` ``WORKFLOW_*`` for non-genai-handled kinds, custom
-  fallback to ``dify:custom``, util-genai handler degraded path.
+  fallback, util-genai handler degraded path.
 """
 
 from unittest.mock import patch
@@ -27,7 +26,6 @@ from extensions.otel.semconv.node_kind import (
     is_genai_handled_kind,
     kind_to_workflow_span_kind,
     node_type_to_kind,
-    span_name_for_kind,
 )
 from graphon.enums import BuiltinNodeTypes
 
@@ -65,7 +63,7 @@ class TestObservabilityLayerNodeSpanLifecycle:
     def test_node_span_created_and_ended(
         self, tracer_provider_with_memory_exporter, memory_span_exporter, mock_llm_node
     ):
-        """FR-001: span name is ``dify:<canonical-kind>`` regardless of node.title."""
+        """Span name equals node.title for tracer-driven spans."""
         layer = ObservabilityLayer()
         layer.on_graph_start()
 
@@ -74,7 +72,7 @@ class TestObservabilityLayerNodeSpanLifecycle:
 
         spans = memory_span_exporter.get_finished_spans()
         assert len(spans) == 1
-        assert spans[0].name == span_name_for_kind("llm")
+        assert spans[0].name == mock_llm_node.title
         assert spans[0].status.status_code == StatusCode.OK
 
     @patch("core.app.workflow.layers.observability.dify_config.ENABLE_OTEL", True)
@@ -124,7 +122,7 @@ class TestObservabilityLayerSpecFeature001:
         node_factory,
         node_type,
     ):
-        """All 21 BuiltinNodeTypes produce ``dify:<kind>`` span name and ``dify.node.*`` attrs."""
+        """All BuiltinNodeTypes produce ``node.title`` span name and ``dify.node.*`` attrs."""
         node = node_factory(node_type)
         kind = node_type_to_kind(node_type)
 
@@ -136,19 +134,12 @@ class TestObservabilityLayerSpecFeature001:
         spans = memory_span_exporter.get_finished_spans()
         assert len(spans) == 1
         span = spans[0]
-        assert span.name == span_name_for_kind(kind)
+        assert span.name == node.title
         attrs = span.attributes
         assert attrs[DIFY_NODE_KIND] == kind
-        # ``dify.node.title`` always written, may be empty string but key must exist
         assert DIFY_NODE_TITLE in attrs
-        # ``node.type`` mirrors canonical kind (FR-004)
         assert attrs["node.type"] == kind
-        # ``gen_ai.framework`` preserved
         assert attrs["gen_ai.framework"] == "dify"
-        # On the FR-006 degraded path the genai-handled kinds get the historical
-        # ``LLM`` / ``RETRIEVER`` / ``TOOL`` / ``TASK`` value; the workflow kinds
-        # get ``WORKFLOW_*``. Either is acceptable for this assertion provided
-        # we are not collapsing every non-LLM/Retriever node into ``TASK``.
         kind_attr = attrs.get("gen_ai.span.kind")
         if is_genai_handled_kind(kind):
             assert kind_attr in {"LLM", "RETRIEVER", "TOOL", "TASK"}
@@ -158,10 +149,10 @@ class TestObservabilityLayerSpecFeature001:
 
     @patch("core.app.workflow.layers.observability.dify_config.ENABLE_OTEL", True)
     @pytest.mark.usefixtures("mock_is_instrument_flag_enabled_false", "force_genai_handler_unavailable")
-    def test_custom_node_falls_back_to_dify_custom(
+    def test_custom_node_falls_back_to_node_title(
         self, tracer_provider_with_memory_exporter, memory_span_exporter, mock_custom_node
     ):
-        """FR-005: unknown ``node_type`` produces ``dify:custom`` and ``dify.node.kind.raw``."""
+        """Unknown ``node_type`` uses node.title as span name and sets ``dify.node.kind.raw``."""
         layer = ObservabilityLayer()
         layer.on_graph_start()
         layer.on_node_run_start(mock_custom_node)
@@ -170,7 +161,7 @@ class TestObservabilityLayerSpecFeature001:
         spans = memory_span_exporter.get_finished_spans()
         assert len(spans) == 1
         attrs = spans[0].attributes
-        assert spans[0].name == span_name_for_kind("custom")
+        assert spans[0].name == mock_custom_node.title
         assert attrs[DIFY_NODE_KIND] == "custom"
         assert attrs[DIFY_NODE_KIND_RAW] == mock_custom_node.node_type
         assert attrs["gen_ai.span.kind"] == "TASK"
@@ -180,7 +171,7 @@ class TestObservabilityLayerSpecFeature001:
     def test_genai_handler_unavailable_degraded_path(
         self, tracer_provider_with_memory_exporter, memory_span_exporter, mock_llm_node
     ):
-        """FR-006: when handler is None, LLM nodes still emit a span via tracer."""
+        """When handler is None, LLM nodes still emit a span via tracer with node.title."""
         layer = ObservabilityLayer()
         layer.on_graph_start()
         layer.on_node_run_start(mock_llm_node)
@@ -189,9 +180,7 @@ class TestObservabilityLayerSpecFeature001:
         spans = memory_span_exporter.get_finished_spans()
         assert len(spans) == 1
         attrs = spans[0].attributes
-        # Span name normalised even on degraded path.
-        assert spans[0].name == span_name_for_kind("llm")
-        # Historical ``LLM`` value retained for backward-compatibility queries.
+        assert spans[0].name == mock_llm_node.title
         assert attrs["gen_ai.span.kind"] == "LLM"
 
 
