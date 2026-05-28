@@ -1,0 +1,16 @@
+# spec ref: spec/dify-workflow-span-naming/spec.md FR-010 / CS-009
+# Deploys a minimal Dify (API + Worker) with OTel console exporter into the
+# pre-existing dify-system namespace on the ACK cluster pointed to by
+# ~/.kube/config-hk so we can assert dify:<kind> spans land on stdout.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - configmap-otel-console.yaml
+  - deployment-api.yaml
+  - deployment-worker.yaml
+  - service-api.yaml
+
+commonLabels:
+  app.kubernetes.io/part-of: dify-e2e
+  app.kubernetes.io/managed-by: dify-make-e2e

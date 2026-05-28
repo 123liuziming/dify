@@ -1350,6 +1350,7 @@ dependencies = [
     { name = "httpx", extra = ["socks"] },
     { name = "httpx-sse" },
     { name = "json-repair" },
+    { name = "loongsuite-util-genai" },
     { name = "opentelemetry-distro" },
     { name = "opentelemetry-instrumentation-celery" },
     { name = "opentelemetry-instrumentation-flask" },
@@ -1633,6 +1634,7 @@ requires-dist = [
     { name = "httpx", extras = ["socks"], specifier = ">=0.28.1,<1.0.0" },
     { name = "httpx-sse", specifier = "~=0.4.0" },
     { name = "json-repair", specifier = "~=0.59.4" },
+    { name = "loongsuite-util-genai", specifier = ">=0.1.0,<1.0.0" },
     { name = "opentelemetry-distro", specifier = ">=0.62b1,<1.0.0" },
     { name = "opentelemetry-instrumentation-celery", specifier = ">=0.62b0,<1.0.0" },
     { name = "opentelemetry-instrumentation-flask", specifier = ">=0.62b0,<1.0.0" },
@@ -3750,6 +3752,19 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/58/1b/0c74ad85f977743ba4c589e46e0cb138d6a6e69487830f4e86ebbdb145a3/logfire_api-4.32.1.tar.gz", hash = "sha256:5e8714b2bb5fb5d1f4a4a833941e4ca711b75d2c1f98e76c5ad680fe6991af6a", size = 78788, upload-time = "2026-04-15T14:11:58.788Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/0c/ab/d5adeab6253c7ecd5904fc5ef3265859f218610caf4e1e55efe9aff6ac49/logfire_api-4.32.1-py3-none-any.whl", hash = "sha256:4b4c27cf6e27e8e26ef4b22a77f2a2988dd1d07e2d24ee70673ef34b234fb8a5", size = 124394, upload-time = "2026-04-15T14:11:56.157Z" },
+]
+
+[[package]]
+name = "loongsuite-util-genai"
+version = "0.5.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-instrumentation" },
+    { name = "opentelemetry-semantic-conventions" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/26/12/25d01c2ff4c2d3affd3275f2638b73000fd17e4481c45132e12584f01834/loongsuite_util_genai-0.5.0-py3-none-any.whl", hash = "sha256:57eccc5b61fd50c747c8b28c7849da819c223039108861fb267bd01a531bb6d8", size = 95466, upload-time = "2026-05-11T06:07:51.183Z" },
 ]
 
 [[package]]

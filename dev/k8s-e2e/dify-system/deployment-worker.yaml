@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dify-worker
+  labels:
+    app: dify-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dify-worker
+  template:
+    metadata:
+      labels:
+        app: dify-worker
+    spec:
+      containers:
+        - name: worker
+          image: dify-api:e2e-age-42
+          imagePullPolicy: IfNotPresent
+          command: ["/entrypoint.sh"]
+          envFrom:
+            - configMapRef:
+                name: dify-otel-console-env
+            - configMapRef:
+                name: dify-app-env
+          env:
+            - name: DIFY_NODE_ROLE
+              value: "worker"
+            - name: MODE
+              value: "worker"
+            - name: CELERY_WORKER_CONCURRENCY
+              value: "4"
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "2Gi"
