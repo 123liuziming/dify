@@ -96,17 +96,12 @@ _GENAI_HANDLED_KINDS: frozenset[str] = frozenset({"llm", "knowledge-retrieval", 
 def node_type_to_kind(node_type: object) -> str:
     """Return canonical kebab-case kind for a node type.
 
-    Returns :data:`CUSTOM_KIND` for any value that is not a known
-    :class:`BuiltinNodeTypes`. The lookup is tolerant of plain strings so callers
-    can pass ``node.node_type`` even when graphon yields a non-enum on a
-    custom/unknown node.
+    ``BuiltinNodeTypes`` exposes plain ``str`` class attributes (it is not a
+    real ``Enum``), so ``node.node_type`` is always a string at runtime and the
+    mapping reduces to a plain dict lookup.
     """
-    if isinstance(node_type, BuiltinNodeTypes):
-        return _NODE_TYPE_TO_KIND.get(node_type, CUSTOM_KIND)
     if isinstance(node_type, str):
-        for member, kind in _NODE_TYPE_TO_KIND.items():
-            if member.value == node_type or member.name == node_type:
-                return kind
+        return _NODE_TYPE_TO_KIND.get(node_type, CUSTOM_KIND)
     return CUSTOM_KIND
 
 

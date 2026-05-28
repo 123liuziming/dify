@@ -23,9 +23,17 @@ spec:
           envFrom:
             - configMapRef:
                 name: dify-otel-console-env
+            - configMapRef:
+                name: dify-app-env
           env:
             - name: DIFY_NODE_ROLE
               value: "api"
+            - name: SERVER_WORKER_AMOUNT
+              value: "2"
+            - name: SERVER_WORKER_CONNECTIONS
+              value: "200"
+            - name: GUNICORN_TIMEOUT
+              value: "600"
           ports:
             - name: http
               containerPort: 5001
@@ -34,13 +42,17 @@ spec:
               path: /health
               port: 5001
             initialDelaySeconds: 5
-            periodSeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
           livenessProbe:
             httpGet:
               path: /health
               port: 5001
             initialDelaySeconds: 30
             periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 5
           resources:
             requests:
               cpu: "200m"
